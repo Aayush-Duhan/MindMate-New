@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
 import {
@@ -111,12 +111,12 @@ const AnonymousChat = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [socket, setSocket] = useState(null);
-  const [globalSocket, setGlobalSocket] = useState(null);
   const [category, setCategory] = useState('');
   const [previousChats, setPreviousChats] = useState([]);
   const [toast, setToast] = useState(null);
   const messagesEndRef = useRef(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const socketRef = useRef(null);
 
   const categories = [
     { id: 'mental_health', label: 'Mental Health' },
@@ -146,133 +146,67 @@ const AnonymousChat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const startNewChat = async (selectedCategory) => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('Starting new chat with category:', selectedCategory);
-      
-      const response = await fetch('http://localhost:5000/api/anonymous-chat/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ category: selectedCategory })
-      });
-
-      const data = await response.json();
-      console.log('Chat start response:', data);
-
-      if (response.ok && data.success) {
-        setChatId(data.chatId);
-        setCategory(selectedCategory);
-        initializeSocket(data.chatId);
-        console.log('Chat started successfully with ID:', data.chatId);
-      } else {
-        console.error('Server response:', data);
-        throw new Error(data.error || data.message || 'Failed to start chat');
-      }
-    } catch (error) {
-      console.error('Error starting chat:', error);
-      setError(error.message || 'Failed to start chat. Please try again.');
-      setChatId(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initialize global socket for chat updates
+  // Initialize single socket connection
   useEffect(() => {
-    if (!globalSocket) {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No auth token found');
-        return;
+    const newSocket = io('http://localhost:5000', {
+      auth: {
+        token: localStorage.getItem('token')
       }
+    });
 
-      const newGlobalSocket = io('http://localhost:5000', {
-        auth: { token },
-        extraHeaders: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+    newSocket.on('connect', () => {
+      console.log('Socket connected');
+      setSocket(newSocket);
+      socketRef.current = newSocket;
+    });
 
-      newGlobalSocket.on('connect', () => {
-        console.log('Global socket connected');
-        if (chatId) {
-          console.log('Joining chat:', chatId);
-          newGlobalSocket.emit('joinChat', chatId);
-        }
-      });
+    newSocket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
 
-      newGlobalSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-        if (error.message === 'Authentication error') {
-          window.location.href = '/login';
-        }
-      });
-
-      newGlobalSocket.on('newMessage', (data) => {
-        console.log('Received new message:', data);
-        setMessages(prevMessages => {
-          const messageExists = prevMessages.some(msg => 
-            msg.content === data.message.content && 
-            msg.sender === data.message.sender &&
-            msg.timestamp === data.message.timestamp
-          );
-          
-          if (messageExists) {
-            console.log('Duplicate message detected, skipping...');
-            return prevMessages;
-          }
-          
-          const newMessages = [...prevMessages, data.message];
-          console.log('Updated messages:', newMessages);
-          
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-          
-          return newMessages;
-        });
-      });
-
-      setGlobalSocket(newGlobalSocket);
-
-      return () => {
-        if (newGlobalSocket.connected) {
-          if (chatId) {
-            console.log('Leaving chat:', chatId);
-            newGlobalSocket.emit('leaveChat', chatId);
-          }
-          newGlobalSocket.disconnect();
-        }
-      };
-    }
+    return () => {
+      if (newSocket) {
+        newSocket.disconnect();
+      }
+    };
   }, []);
 
-  const initializeSocket = (newChatId) => {
-    console.log('Initializing socket for chat:', newChatId);
+  // Message handler with useCallback at component level
+  const handleNewMessage = useCallback((data) => {
+    if (data.chatId === chatId) {
+      setMessages(prevMessages => {
+        // Check if message already exists
+        const messageExists = prevMessages.some(
+          msg => 
+            msg.content === data.message.content && 
+            msg.timestamp === data.message.timestamp
+        );
+        
+        if (messageExists) return prevMessages;
+        return [...prevMessages, data.message];
+      });
+    }
+  }, [chatId]);
+
+  // Handle chat room and messages with optimized socket handling
+  useEffect(() => {
+    if (!socket || !chatId) return;
+
+    console.log('Setting up chat room:', chatId);
     
-    if (!globalSocket) {
-      console.error('No global socket available');
-      return;
-    }
+    // Join chat room
+    socket.emit('joinChat', chatId);
 
-    // Leave previous chat if any
-    if (chatId) {
-      console.log('Leaving previous chat:', chatId);
-      globalSocket.emit('leaveChat', chatId);
-    }
+    // Message handler
+    socket.on('newMessage', handleNewMessage);
 
-    // Join new chat
-    console.log('Joining new chat:', newChatId);
-    globalSocket.emit('joinChat', newChatId);
-
-    // Fetch messages for the new chat
-    fetchChatMessages(newChatId);
-  };
+    // Cleanup
+    return () => {
+      console.log('Leaving chat room:', chatId);
+      socket.off('newMessage', handleNewMessage);
+      socket.emit('leaveChat', chatId);
+    };
+  }, [socket, chatId, handleNewMessage]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -282,7 +216,7 @@ const AnonymousChat = () => {
     setInputMessage('');
 
     try {
-      console.log('Sending message to chat:', chatId);
+      // Send message to server
       const response = await fetch(`http://localhost:5000/api/anonymous-chat/${chatId}/message`, {
         method: 'POST',
         headers: {
@@ -292,32 +226,60 @@ const AnonymousChat = () => {
         body: JSON.stringify({ message: messageText })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
       const data = await response.json();
-      if (!data.success) {
+      if (!response.ok || !data.success) {
         throw new Error(data.message || 'Failed to send message');
       }
 
-      console.log('Message sent successfully');
+      // After successful save, emit through socket
+      socket.emit('sendMessage', {
+        chatId,
+        message: data.message
+      });
 
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message. Please try again.');
-      setInputMessage(messageText);
+      setInputMessage(messageText); // Restore message on error
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (socket) {
-        console.log('Cleaning up socket connection');
-        socket.disconnect();
+  const startNewChat = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:5000/api/anonymous-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ category })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create chat');
       }
-    };
-  }, [socket]);
+
+      const newChatId = data.chatId;
+      setChatId(newChatId);
+      setMessages([]); // Clear messages for new chat
+      await fetchChatMessages(newChatId);
+
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      setError('Failed to start chat. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto scroll on new messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const fetchPreviousChats = async (retryCount = 3, delay = 1000) => {
     try {
@@ -356,7 +318,7 @@ const AnonymousChat = () => {
     debouncedFetchChats();
   }, []);
 
-  const fetchChatMessages = async (chatId) => {
+  const fetchChatMessages = useCallback(async (chatId) => {
     try {
       setLoadingMessages(true);
       const response = await fetch(`http://localhost:5000/api/anonymous-chat/${chatId}/messages`, {
@@ -378,7 +340,7 @@ const AnonymousChat = () => {
     } finally {
       setLoadingMessages(false);
     }
-  };
+  }, []);
 
   const closeChat = async (chatIdToClose) => {
     try {
@@ -423,13 +385,6 @@ const AnonymousChat = () => {
       setError('Failed to close chat');
     }
   };
-
-  // Add an effect to handle chat changes
-  useEffect(() => {
-    if (chatId && globalSocket) {
-      initializeSocket(chatId);
-    }
-  }, [chatId, globalSocket]);
 
   const handleApiError = (error, response) => {
     if (response?.status === 429) {
@@ -498,7 +453,6 @@ const AnonymousChat = () => {
                     setChatId(chat._id);
                     setCategory(chat.category);
                     await fetchChatMessages(chat._id);
-                    initializeSocket(chat._id);
                   }}
                   whileHover={{ scale: 1.02 }}
                   className="w-full p-3 rounded-xl border text-left transition-all group bg-[#1a1a1a] border-gray-800 hover:border-purple-500/30"
@@ -543,7 +497,10 @@ const AnonymousChat = () => {
               {categories.map((cat) => (
                 <motion.button
                   key={cat.id}
-                  onClick={() => startNewChat(cat.id)}
+                  onClick={() => {
+                    setCategory(cat.id);
+                    startNewChat();
+                  }}
                   whileHover={{ scale: 1.02 }}
                   className="p-4 bg-[#1a1a1a] rounded-xl border border-gray-800 hover:border-purple-500/30 text-left transition-all group"
                 >
@@ -606,7 +563,6 @@ const AnonymousChat = () => {
                   setChatId(chat._id);
                   setCategory(chat.category);
                   await fetchChatMessages(chat._id);
-                  initializeSocket(chat._id);
                 }}
                 whileHover={{ scale: 1.02 }}
                 className={`w-full p-3 rounded-xl border text-left transition-all group
@@ -688,7 +644,7 @@ const AnonymousChat = () => {
             ) : (
               messages.map((msg, index) => (
                 <motion.div
-                  key={index}
+                  key={`${msg.timestamp}-${index}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`flex ${msg.sender === 'anonymous' ? 'justify-end' : 'justify-start'}`}
@@ -734,4 +690,4 @@ const AnonymousChat = () => {
   );
 };
 
-export default AnonymousChat; 
+export default AnonymousChat;

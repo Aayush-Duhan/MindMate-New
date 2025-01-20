@@ -156,11 +156,11 @@ const CounselorChat = () => {
   }, [messages]);
 
   const handleSendMessage = async (e) => {
-    e.preventDefault(); // Prevent form submission
-    if (!inputMessage.trim() || !selectedChat) return;
+    e.preventDefault();
+    if (!inputMessage.trim() || !selectedChat?._id) return;
 
     const messageText = inputMessage.trim();
-    setInputMessage(''); // Clear input immediately for better UX
+    setInputMessage('');
 
     try {
       const response = await fetch(`http://localhost:5000/api/anonymous-chat/${selectedChat._id}/counselor-message`, {
@@ -169,27 +169,21 @@ const CounselorChat = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({
-          message: messageText
-        })
+        body: JSON.stringify({ message: messageText })
       });
 
       const data = await response.json();
-      
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         throw new Error(data.message || 'Failed to send message');
       }
 
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to send message');
-      }
+      // Remove immediate local state update
+      // Let socket event handle the message update
 
-      // Don't manually add message - it will come through socket
-      console.log('Message sent successfully');
     } catch (error) {
       console.error('Error sending message:', error);
       setError(error.message || 'Failed to send message. Please try again.');
-      setInputMessage(messageText); // Restore the message if it failed
+      setInputMessage(messageText); // Restore message on error
     }
   };
 
@@ -236,67 +230,77 @@ const CounselorChat = () => {
     }
   };
 
+  // Initialize socket connection
   useEffect(() => {
-    if (selectedChat) {
-      const newSocket = io('http://localhost:5000', {
-        auth: {
-          token: localStorage.getItem('token')
-        },
-        extraHeaders: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
-      });
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-      newSocket.on('connect', () => {
-        console.log('Socket connected, joining chat:', selectedChat._id);
-        newSocket.emit('joinChat', selectedChat._id);
-      });
+    const newSocket = io('http://localhost:5000', {
+      auth: { token },
+      transports: ['websocket']
+    });
 
-      newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-        if (error.message.includes('Authentication')) {
-          handleTokenExpiration();
-        }
-      });
-
-      newSocket.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
-        if (reason === 'io server disconnect') {
-          // Reconnect manually if server disconnected
-          newSocket.connect();
-        }
-      });
-
-      newSocket.on('newMessage', (data) => {
-        if (data.chatId === selectedChat._id) {
-          setMessages(prevMessages => {
-            const messageExists = prevMessages.some(msg => 
-              msg.content === data.message.content && 
-              msg.timestamp === data.message.timestamp
-            );
-            if (messageExists) {
-              return prevMessages;
-            }
-            return [...prevMessages, data.message];
-          });
-          scrollToBottom();
-        }
-      });
-
+    newSocket.on('connect', () => {
+      console.log('Socket connected');
       setSocket(newSocket);
+      
+      // Join active chat room if exists
+      if (selectedChat?._id) {
+        console.log('Joining chat room:', selectedChat._id);
+        newSocket.emit('joinChat', selectedChat._id);
+      }
+    });
 
-      return () => {
-        console.log('Cleaning up socket connection');
-        if (newSocket.connected) {
+    newSocket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
+
+    return () => {
+      if (newSocket) {
+        if (selectedChat?._id) {
           newSocket.emit('leaveChat', selectedChat._id);
-          newSocket.disconnect();
         }
-      };
-    }
-  }, [selectedChat]);
+        newSocket.disconnect();
+      }
+    };
+  }, []);
+
+  // Handle chat room and messages
+  useEffect(() => {
+    if (!socket || !selectedChat?._id) return;
+
+    // Join new chat room
+    console.log('Joining chat room:', selectedChat._id);
+    socket.emit('joinChat', selectedChat._id);
+
+    // Listen for new messages
+    const handleNewMessage = (data) => {
+      console.log('New message received:', data);
+      if (data.chatId === selectedChat._id) {
+        setMessages(prevMessages => {
+          // Prevent duplicates
+          const isDuplicate = prevMessages.some(msg => 
+            msg.content === data.message.content && 
+            new Date(msg.timestamp).getTime() === new Date(data.message.timestamp).getTime()
+          );
+          
+          if (!isDuplicate) {
+            return [...prevMessages, data.message];
+          }
+          return prevMessages;
+        });
+      }
+    };
+
+    socket.on('newMessage', handleNewMessage);
+
+    // Cleanup
+    return () => {
+      console.log('Leaving chat room:', selectedChat._id);
+      socket.off('newMessage', handleNewMessage);
+      socket.emit('leaveChat', selectedChat._id);
+    };
+  }, [socket, selectedChat]);
 
   useEffect(() => {
     console.log('Selected chat:', selectedChat);

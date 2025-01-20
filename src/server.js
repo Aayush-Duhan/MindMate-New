@@ -12,6 +12,7 @@ const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Chat = require('./models/Chat');
 const mongoose = require('mongoose');
+const { initializeSocket } = require('./utils/socketUtils');
 
 const app = express();
 const server = http.createServer(app);
@@ -28,14 +29,17 @@ server.on('error', (error) => {
   process.exit(1);
 });
 
+// Socket.io setup
 io = socketIO(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST", "OPTIONS"],
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization", "x-anonymous-id"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
+
+// Initialize socket utilities
+initializeSocket(io);
 
 // Connect to MongoDB
 connectDB();
@@ -119,93 +123,70 @@ app.use('/api/users', userRoutes);
 app.use('/api/quotes', quotesRoutes);
 app.use('/api/profile', profileRoutes);
 
-// Make io available in routes
+// Make io available to routes
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// Basic route
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date(),
-    uptime: process.uptime()
-  });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
-});
-
-// Store user socket mappings
-const userSockets = new Map();
-
-// Socket.io middleware
-io.use((socket, next) => {
-  const anonymousId = socket.handshake.auth.anonymousId;
-  const token = socket.handshake.auth.token;
-
-  // Allow anonymous connections
-  if (!token && !anonymousId) {
-    return next(new Error('Authentication error'));
-  }
-
-  try {
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded.id;
-    } else if (anonymousId) {
-      socket.anonymousId = anonymousId;
-    }
-    next();
-  } catch (err) {
-    console.error('Socket auth error:', err);
-    next(new Error('Authentication error'));
-  }
-});
-
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  const userId = socket.userId || 'anonymous';
+  console.log('New client connected');
 
-  // Store user socket mapping
-  userSockets.set(socket.userId, socket);
-
-  socket.on('joinChat', (chatId) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`User ${userId} joined chat ${chatId}`);
+  // Get user info from token
+  const token = socket.handshake.auth.token;
+  let userId = 'anonymous';
+  
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userId = decoded.id;
+      socket.userId = userId;
+      console.log('Authenticated user connected:', userId);
+    } catch (error) {
+      console.error('Token verification failed:', error);
     }
+  }
+
+  // Store active chat rooms for this socket
+  const activeRooms = new Set();
+
+  // Join chat room
+  socket.on('joinChat', (chatId) => {
+    console.log(`User ${userId} joining chat ${chatId}`);
     socket.join(chatId);
+    activeRooms.add(chatId);
   });
 
-  socket.on('leaveChat', (chatId) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`User ${userId} left chat ${chatId}`);
+  // Handle new message
+  socket.on('sendMessage', async (data) => {
+    const { chatId, message } = data;
+    
+    if (!activeRooms.has(chatId)) {
+      console.warn(`Attempt to send message to inactive room ${chatId}`);
+      return;
     }
+
+    // Broadcast the message to all clients in the room
+    io.in(chatId).emit('newMessage', {
+      chatId,
+      message
+    });
+  });
+
+  // Leave chat room
+  socket.on('leaveChat', (chatId) => {
+    console.log(`User ${userId} leaving chat ${chatId}`);
     socket.leave(chatId);
+    activeRooms.delete(chatId);
   });
 
   socket.on('disconnect', () => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Socket disconnected:', userId);
-    }
-  });
-
-  socket.on('error', (error) => {
-    console.error('Socket error:', error);
+    console.log('Client disconnected:', userId);
+    // Clean up active rooms
+    activeRooms.clear();
   });
 });
-
-// Update emit function to only log in development
-const emitChatUpdate = (chatId, eventName, data) => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`Emitting ${eventName} to chat ${chatId}`);
-  }
-  io.to(chatId).emit(eventName, data);
-};
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

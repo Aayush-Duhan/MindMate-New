@@ -1,7 +1,16 @@
 const AnonymousChat = require('../models/AnonymousChat');
 const crypto = require('crypto');
-const { emitChatUpdate } = require('../server');
 const mongoose = require('mongoose');
+const { broadcastToRoom } = require('../utils/socketUtils');
+
+// Socket event emitter helper
+const emitChatUpdate = (io, userId, event, data) => {
+  if (!io) {
+    console.warn('Socket.io instance not available');
+    return;
+  }
+  io.to(userId).emit(event, data);
+};
 
 // Create new anonymous chat session
 const createAnonymousChat = async (req, res) => {
@@ -17,7 +26,9 @@ const createAnonymousChat = async (req, res) => {
       }
     });
 
-    emitChatUpdate(req.user.id, 'newChat', chat);
+    if (req.io) {
+      emitChatUpdate(req.io, req.user.id, 'newChat', chat);
+    }
 
     res.status(201).json({
       success: true,
@@ -55,18 +66,17 @@ const sendAnonymousMessage = async (req, res) => {
     chat.metadata.totalMessages += 1;
     
     await chat.save();
+
+    // Broadcast to room
+    broadcastToRoom(chatId, 'newMessage', {
+      chatId,
+      message: newMessage
+    });
     
-    // Safely emit to all users in the chat
-    if (req.io) {
-      req.io.to(chatId).emit('newMessage', {
-        chatId,
-        message: newMessage
-      });
-    } else {
-      console.warn('Socket.io instance not available');
-    }
-    
-    res.json({ success: true });
+    res.json({ 
+      success: true,
+      message: newMessage 
+    });
   } catch (error) {
     console.error('Send message error:', error);
     res.status(500).json({
@@ -77,7 +87,7 @@ const sendAnonymousMessage = async (req, res) => {
   }
 };
 
-// Get chat messages (counselor only)
+// Get chat messages
 const getChatMessages = async (req, res) => {
   try {
     const { chatId } = req.params;
@@ -98,15 +108,17 @@ const getChatMessages = async (req, res) => {
       });
     }
 
-    // Add authorization check
-    if (!chat.counselorId && req.user.role !== 'admin') {
+    // Modified authorization check to allow both counselor and chat owner
+    if (chat.anonymousId !== req.user.id && // Chat owner
+        (!chat.counselorId || !chat.counselorId.equals(req.user._id)) && // Assigned counselor
+        req.user.role !== 'admin') { // Admin
       return res.status(403).json({ 
         success: false, 
         message: 'Not authorized to view messages' 
       });
     }
 
-    // Add try-catch for message decryption
+    // Return messages
     const messages = chat.encryptedMessages.map(msg => {
       try {
         return {
@@ -138,7 +150,6 @@ const getChatMessages = async (req, res) => {
       headers: req.headers
     });
     
-    // Send appropriate error response
     res.status(500).json({
       success: false,
       message: 'Error fetching messages',
@@ -203,25 +214,9 @@ const sendCounselorMessage = async (req, res) => {
     const { chatId } = req.params;
     const { message } = req.body;
     
-    // Validate message
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid message format' 
-      });
-    }
-    
     const chat = await AnonymousChat.findById(chatId);
     if (!chat) {
       return res.status(404).json({ message: 'Chat not found' });
-    }
-    
-    // Verify counselor authorization
-    if (!chat.counselorId || !chat.counselorId.equals(req.user._id)) {
-      return res.status(403).json({ 
-        success: false,
-        message: 'Not authorized - only assigned counselor can send messages' 
-      });
     }
     
     const newMessage = {
@@ -235,18 +230,17 @@ const sendCounselorMessage = async (req, res) => {
     chat.metadata.totalMessages += 1;
     
     await chat.save();
+
+    // Broadcast to room
+    broadcastToRoom(chatId, 'newMessage', {
+      chatId,
+      message: newMessage
+    });
     
-    // Safely emit to all users in the chat
-    if (req.io) {
-      req.io.to(chatId).emit('newMessage', {
-        chatId,
-        message: newMessage
-      });
-    } else {
-      console.warn('Socket.io instance not available');
-    }
-    
-    res.json({ success: true });
+    res.json({ 
+      success: true,
+      message: newMessage 
+    });
   } catch (error) {
     console.error('Send counselor message error:', error);
     res.status(500).json({
@@ -346,9 +340,11 @@ const closeChat = async (req, res) => {
     
     await AnonymousChat.findByIdAndDelete(chatId);
     
-    emitChatUpdate(req.user.id, 'chatDeleted', chatId);
-    if (chat.counselorId) {
-      emitChatUpdate(chat.counselorId, 'chatDeleted', chatId);
+    if (req.io) {
+      emitChatUpdate(req.io, req.user.id, 'chatDeleted', chatId);
+      if (chat.counselorId) {
+        emitChatUpdate(req.io, chat.counselorId, 'chatDeleted', chatId);
+      }
     }
     
     res.json({ 
