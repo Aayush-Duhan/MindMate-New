@@ -111,6 +111,12 @@ const connectionRoutes = require('./routes/connection.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const adminRoutes = require('./routes/admin.routes');
 
+// Make io available to routes
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/goals', goalRoutes);
@@ -128,12 +134,6 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/connection', connectionRoutes);
 app.use('/api/admin/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
-
-// Make io available to routes
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

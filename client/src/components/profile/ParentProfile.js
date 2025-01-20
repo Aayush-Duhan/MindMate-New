@@ -14,10 +14,12 @@ const ParentProfile = () => {
   const [profile, setProfile] = useState({
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    avatar: ''
   });
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [connectionCode, setConnectionCode] = useState('');
@@ -60,7 +62,8 @@ const ParentProfile = () => {
 
       const response = await fetch('http://localhost:5000/api/profile', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         }
       });
       const data = await response.json();
@@ -68,16 +71,16 @@ const ParentProfile = () => {
       
       if (response.ok && data.success) {
         const userData = data.data;
-        const profileData = {
+        setProfile({
           name: userData.name || '',
           email: userData.email || '',
-          phone: userData.phone || ''
-        };
-        console.log('Setting profile state:', profileData);
-        setProfile(profileData);
+          phone: userData.phone || '',
+          avatar: userData.avatar || ''
+        });
       } else {
-        console.error('Failed to fetch profile:', data);
-        toast.error(data.message || 'Failed to fetch profile');
+        const errorMessage = data.error || 'Failed to fetch profile';
+        console.error('Profile fetch failed:', errorMessage);
+        toast.error(errorMessage);
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -166,50 +169,95 @@ const ParentProfile = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setProfile(prevProfile => ({
-      ...prevProfile,
+    setProfile(prev => ({
+      ...prev,
       [name]: value
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleEditClick = (e) => {
+    e.preventDefault();
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = (e) => {
+    e.preventDefault();
+    setIsEditing(false);
+    fetchProfile(); // Reset to original values
+  };
+
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     try {
+      setIsSaving(true);
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No auth token found');
       }
 
+      // Validate required fields
+      if (!profile.name.trim()) {
+        toast.error('Name is required');
+        return;
+      }
+
+      if (!profile.email.trim()) {
+        toast.error('Email is required');
+        return;
+      }
+
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(profile.email)) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+
+      // Phone validation (optional)
+      if (profile.phone && !/^\+?[\d\s-]{10,}$/.test(profile.phone)) {
+        toast.error('Please enter a valid phone number');
+        return;
+      }
+
+      const updateData = {
+        name: profile.name.trim(),
+        email: profile.email.trim(),
+        phone: profile.phone ? profile.phone.trim() : null
+      };
+
+      console.log('Sending update data:', updateData);
+
       const response = await fetch('http://localhost:5000/api/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          user: {
-            name: profile.name,
-            email: profile.email,
-            phone: profile.phone
-          }
-        })
+        body: JSON.stringify(updateData)
       });
 
       const data = await response.json();
-      console.log('Update response:', data);
-      
+      console.log('Profile update response:', data);
+
       if (response.ok && data.success) {
         toast.success('Profile updated successfully');
         setIsEditing(false);
+        // Update the profile with the returned data
+        setProfile(prev => ({
+          ...prev,
+          ...data.data
+        }));
       } else {
-        toast.error(data.message || 'Failed to update profile');
+        const errorMessage = data.error || 'Failed to update profile';
+        console.error('Profile update failed:', errorMessage);
+        toast.error(errorMessage);
       }
     } catch (err) {
-      toast.error('Error updating profile');
       console.error('Error updating profile:', err);
-      if (err.message === 'No auth token found') {
-        window.location.href = '/login';
-      }
+      toast.error('Error updating profile. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -239,7 +287,7 @@ const ParentProfile = () => {
       </motion.div>
 
       <motion.div variants={itemVariants} className="bg-[#111] border border-gray-800 rounded-2xl p-6">
-        <form onSubmit={handleSubmit}>
+        <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-gray-400 mb-2">
@@ -291,33 +339,46 @@ const ParentProfile = () => {
           </div>
 
           <div className="mt-6 flex justify-end space-x-4">
-            {isEditing ? (
+            {!isEditing ? (
+              <button
+                onClick={handleEditClick}
+                type="button"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
+              >
+                Edit Profile
+              </button>
+            ) : (
               <>
                 <button
+                  onClick={handleCancelEdit}
                   type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-200"
+                  disabled={isSaving}
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+                  onClick={handleSaveProfile}
+                  type="button"
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-200 flex items-center"
+                  disabled={isSaving}
                 >
-                  Save Changes
+                  {isSaving ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
                 </button>
               </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
-              >
-                Edit Profile
-              </button>
             )}
           </div>
-        </form>
+        </div>
       </motion.div>
 
       {/* Connected Children Section */}

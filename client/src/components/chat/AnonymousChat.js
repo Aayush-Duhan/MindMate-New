@@ -244,16 +244,16 @@ const AnonymousChat = () => {
     }
   };
 
-  const startNewChat = async () => {
+  const startNewChat = async (selectedCategory) => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/anonymous-chat', {
+      const response = await fetch('http://localhost:5000/api/anonymous-chat/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ category })
+        body: JSON.stringify({ category: selectedCategory || category })
       });
 
       const data = await response.json();
@@ -499,7 +499,7 @@ const AnonymousChat = () => {
                   key={cat.id}
                   onClick={() => {
                     setCategory(cat.id);
-                    startNewChat();
+                    startNewChat(cat.id);
                   }}
                   whileHover={{ scale: 1.02 }}
                   className="p-4 bg-[#1a1a1a] rounded-xl border border-gray-800 hover:border-purple-500/30 text-left transition-all group"
