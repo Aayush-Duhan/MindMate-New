@@ -22,6 +22,7 @@ import { GoalProvider } from './context/GoalContext';
 import { Toaster } from 'react-hot-toast';
 import StudentProfile from './components/profile/StudentProfile';
 import AdminProfile from './components/profile/AdminProfile';
+import ParentProfile from './components/profile/ParentProfile';
 
 function App() {
   useEffect(() => {
@@ -97,6 +98,11 @@ function App() {
             <Route path="/parent/support" element={
               <PrivateRoute allowedRoles={['parent']}>
                 <ParentSupport />
+              </PrivateRoute>
+            } />
+            <Route path="/parent/profile" element={
+              <PrivateRoute allowedRoles={['parent']}>
+                <ParentProfile />
               </PrivateRoute>
             } />
             <Route path="/teacher/support" element={

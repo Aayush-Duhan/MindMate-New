@@ -16,6 +16,10 @@ const UserSchema = new mongoose.Schema({
       'Please add a valid email'
     ]
   },
+  phone: {
+    type: String,
+    default: null
+  },
   password: {
     type: String,
     required: [true, 'Please add a password'],
@@ -24,7 +28,7 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['student', 'counselor', 'admin'],
+    enum: ['student', 'counselor', 'admin', 'parent'],
     default: 'student'
   },
   specialization: {
@@ -34,7 +38,30 @@ const UserSchema = new mongoose.Schema({
   profile: {
     bio: String,
     education: String,
-    approach: String
+    approach: String,
+    childName: {
+      type: String,
+      required: function() { return this.role === 'parent'; }
+    },
+    relationship: {
+      type: String,
+      enum: ['mother', 'father', 'guardian', 'other'],
+      required: function() { return this.role === 'parent'; }
+    }
+  },
+  children: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  connectionCode: {
+    code: {
+      type: String,
+      default: null
+    },
+    expiresAt: {
+      type: Date,
+      default: null
+    }
   },
   isActive: {
     type: Boolean,

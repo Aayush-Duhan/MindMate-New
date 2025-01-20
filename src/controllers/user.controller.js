@@ -146,10 +146,12 @@ const createUser = async (req, res) => {
 // @access  Private/Admin
 const updateUser = async (req, res) => {
   try {
-    const { email, role, profile } = req.body;
+    const { id } = req.params;
+    const { name, preferences } = req.body;
 
-    // Check if user exists
-    const user = await User.findById(req.params.id);
+    // Find user and update
+    const user = await User.findById(id);
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -157,42 +159,38 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // If email is being changed, check if new email already exists
-    if (email && email !== user.email) {
-      const emailExists = await User.findOne({ email });
-      if (emailExists) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email already in use'
-        });
-      }
+    // Update allowed fields
+    if (name) {
+      user.name = name;
+    }
+    
+    if (preferences) {
+      user.preferences = {
+        ...user.preferences || {},
+        theme: preferences.theme || user.preferences?.theme || 'dark',
+        notifications: preferences.notifications !== undefined ? preferences.notifications : (user.preferences?.notifications || true),
+        emailUpdates: preferences.emailUpdates !== undefined ? preferences.emailUpdates : (user.preferences?.emailUpdates || true)
+      };
     }
 
-    // Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      {
-        email: email || user.email,
-        role: role || user.role,
-        profile: {
-          ...user.profile,
-          ...profile
-        },
-        updatedAt: Date.now()
-      },
-      { new: true }
-    ).select('-password');
+    // Save changes
+    await user.save();
+
+    // Return updated user without password
+    const updatedUser = await User.findById(id).select('-password');
 
     res.json({
       success: true,
+      message: 'Profile updated successfully',
       user: updatedUser
     });
+
   } catch (error) {
-    console.error('Error in updateUser:', error);
+    console.error('Profile update error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating user',
-      error: error.message
+      message: 'Error updating profile',
+      error: error.message // Adding error message for debugging
     });
   }
 };
