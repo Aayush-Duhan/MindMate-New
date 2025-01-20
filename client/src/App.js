@@ -21,10 +21,10 @@ import StudentProgress from './pages/StudentProgress';
 import { GoalProvider } from './context/GoalContext';
 import { Toaster } from 'react-hot-toast';
 import StudentProfile from './components/profile/StudentProfile';
+import AdminProfile from './components/profile/AdminProfile';
 
 function App() {
   useEffect(() => {
-    // Check token validity when app starts
     isValidToken();
   }, []);
 
@@ -117,6 +117,11 @@ function App() {
             <Route path="/admin/analytics" element={
               <PrivateRoute allowedRoles={['admin']}>
                 <Analytics />
+              </PrivateRoute>
+            } />
+            <Route path="/admin/profile" element={
+              <PrivateRoute allowedRoles={['admin']}>
+                <AdminProfile />
               </PrivateRoute>
             } />
           </Routes>
