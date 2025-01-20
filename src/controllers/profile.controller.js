@@ -90,7 +90,12 @@ const getProfile = asyncHandler(async (req, res) => {
 const updateProfile = asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('Updating profile for user:', userId);
+    console.log('Update data:', req.body);
+
+    // Find user and allow updating email
     const user = await User.findById(userId);
+    console.log('Current user data:', user);
 
     if (!user) {
       return res.status(404).json({
@@ -101,52 +106,136 @@ const updateProfile = asyncHandler(async (req, res) => {
 
     // Handle parent profile update
     if (user.role === 'parent') {
-      const { name, email, phone, childName } = req.body;
+      const { name, email, phone } = req.body;
+      console.log('Updating parent profile with:', { name, email, phone });
 
-      // Update basic fields
-      if (name) user.name = name;
-      if (email) user.email = email;
-      if (phone !== undefined) user.phone = phone;
+      // Validate email uniqueness if it's being changed
+      if (email && email !== user.email) {
+        const existingUser = await User.findOne({ email, _id: { $ne: userId } });
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            error: 'Email already in use'
+          });
+        }
+      }
 
-      // Update or initialize profile if it doesn't exist
-      if (!user.profile) user.profile = {};
-      if (childName !== undefined) user.profile.childName = childName;
+      try {
+        // First try to add phone field if it doesn't exist
+        await User.collection.updateOne(
+          { _id: user._id },
+          { $set: { phone: null } },
+          { upsert: false }
+        );
 
-      await user.save();
+        // Update fields
+        const updates = {};
+        if (name) updates.name = name.trim();
+        if (email) updates.email = email.trim();
+        if (phone !== undefined) updates.phone = phone ? phone.trim() : null;
+
+        console.log('Applying updates:', updates);
+
+        // Update user with the changes
+        const updatedUser = await User.findByIdAndUpdate(
+          userId,
+          { $set: updates },
+          { 
+            new: true, 
+            runValidators: true,
+            context: 'query'
+          }
+        ).select('-password');
+
+        console.log('Updated user:', updatedUser);
+
+        if (!updatedUser) {
+          throw new Error('Failed to update user');
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            name: updatedUser.name,
+            email: updatedUser.email,
+            phone: updatedUser.phone || null,
+            avatar: updatedUser.avatar || null
+          }
+        });
+      } catch (updateError) {
+        console.error('Error during update operation:', updateError);
+        return res.status(500).json({
+          success: false,
+          error: updateError.message || 'Error updating profile'
+        });
+      }
+    }
+
+    // Handle other roles (student, counselor, etc.)
+    const { name, email, phone, preferences } = req.body;
+
+    try {
+      // First try to add phone field if it doesn't exist
+      await User.collection.updateOne(
+        { _id: user._id },
+        { $set: { phone: null } },
+        { upsert: false }
+      );
+
+      // Update fields
+      const updates = {};
+      if (name) updates.name = name.trim();
+      if (email) updates.email = email.trim();
+      if (phone !== undefined) updates.phone = phone ? phone.trim() : null;
+      if (preferences) updates.preferences = { ...user.preferences, ...preferences };
+
+      console.log('Applying updates:', updates);
+
+      // Update user with the changes
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updates },
+        { 
+          new: true, 
+          runValidators: true,
+          context: 'query'
+        }
+      ).select('-password');
+
+      console.log('Updated user:', updatedUser);
+
+      if (!updatedUser) {
+        throw new Error('Failed to update user');
+      }
 
       return res.json({
         success: true,
         data: {
-          name: user.name,
-          email: user.email,
-          phone: user.phone || null,
-          childName: user.profile?.childName || '',
-          avatar: user.avatar
+          name: updatedUser.name,
+          email: updatedUser.email,
+          phone: updatedUser.phone || null,
+          preferences: updatedUser.preferences,
+          avatar: updatedUser.avatar || null
         }
       });
+    } catch (updateError) {
+      console.error('Error during update operation:', updateError);
+      return res.status(500).json({
+        success: false,
+        error: updateError.message || 'Error updating profile'
+      });
     }
-
-    // Handle other roles (student, etc.)
-    const { name, preferences } = req.body;
-
-    // Update basic fields
-    if (name) user.name = name;
-    if (preferences) user.preferences = { ...user.preferences, ...preferences };
-
-    await user.save();
-
-    res.json({
-      success: true,
-      data: {
-        name: user.name,
-        preferences: user.preferences
-      }
-    });
   } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({
+    console.error('Error in profile update:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email already in use'
+      });
+    }
+    return res.status(500).json({
       success: false,
-      error: 'Error updating profile'
+      error: error.message || 'Error updating profile'
     });
   }
 });

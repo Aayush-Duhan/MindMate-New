@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const anonymousChatSchema = new mongoose.Schema({
   anonymousId: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   counselorId: {
     type: mongoose.Schema.Types.ObjectId,
