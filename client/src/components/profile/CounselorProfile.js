@@ -4,10 +4,6 @@ import { toast } from 'react-hot-toast';
 import {
   UserCircleIcon,
   AcademicCapIcon,
-  ClockIcon,
-  UserGroupIcon,
-  ChatBubbleLeftRightIcon,
-  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import axios from '../../utils/axios';
 
@@ -18,8 +14,6 @@ const CounselorProfile = ({ user }) => {
     specialization: user?.specialization || '',
     bio: user?.bio || '',
     yearsOfExperience: user?.yearsOfExperience || 0,
-    activeStudents: 0,
-    totalSessions: 0,
     availability: user?.availability || 'available',
     profile: {
       bio: user?.profile?.bio || '',
@@ -30,7 +24,6 @@ const CounselorProfile = ({ user }) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [students, setStudents] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -50,9 +43,6 @@ const CounselorProfile = ({ user }) => {
           ...prev,
           ...userResponse.data.data
         }));
-        
-        await fetchCounselorStats();
-        await fetchStudents();
       } catch (error) {
         console.error('Error fetching profile data:', error.response?.data || error.message);
         toast.error('Failed to load profile data');
@@ -61,40 +51,6 @@ const CounselorProfile = ({ user }) => {
 
     fetchData();
   }, []);
-
-  const fetchCounselorStats = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/counselor/stats', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const { activeStudents, totalSessions } = response.data;
-      setProfileData(prev => ({
-        ...prev,
-        activeStudents,
-        totalSessions
-      }));
-    } catch (error) {
-      console.error('Error fetching counselor stats:', error);
-    }
-  };
-
-  const fetchStudents = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/counselor/students', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      setStudents(response.data.students);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      toast.error('Failed to load students');
-    }
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -163,39 +119,6 @@ const CounselorProfile = ({ user }) => {
             </div>
           </motion.div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <motion.div className="bg-[#111] border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                  <UserGroupIcon className="w-6 h-6 text-blue-400" />
-                </div>
-                <span className="text-2xl font-bold text-blue-400">{profileData.activeStudents}</span>
-              </div>
-              <h3 className="text-white mt-2">Active Students</h3>
-            </motion.div>
-
-            <motion.div className="bg-[#111] border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                  <ChatBubbleLeftRightIcon className="w-6 h-6 text-green-400" />
-                </div>
-                <span className="text-2xl font-bold text-green-400">{profileData.totalSessions}</span>
-              </div>
-              <h3 className="text-white mt-2">Total Sessions</h3>
-            </motion.div>
-
-            <motion.div className="bg-[#111] border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                  <ClockIcon className="w-6 h-6 text-purple-400" />
-                </div>
-                <span className="text-2xl font-bold text-purple-400">{profileData.yearsOfExperience}</span>
-              </div>
-              <h3 className="text-white mt-2">Years Experience</h3>
-            </motion.div>
-          </div>
-
           {/* Profile Form */}
           <motion.div className="bg-[#111] border border-gray-800 rounded-2xl p-6">
             <div className="flex justify-between items-center mb-6">
@@ -228,8 +151,7 @@ const CounselorProfile = ({ user }) => {
                     type="email"
                     name="email"
                     value={profileData.email}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
+                    disabled={true}
                     className="w-full bg-[#1a1a1a] border border-gray-800 rounded-lg px-4 py-2 text-white focus:border-purple-500 focus:ring-purple-500 disabled:opacity-50"
                   />
                 </div>
