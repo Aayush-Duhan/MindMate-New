@@ -46,8 +46,6 @@ const NavBar = ({ user }) => {
           { name: 'Dashboard', path: '/', icon: HomeIcon },
           { name: 'Chats', path: '/counselor/chats', icon: ChatBubbleLeftRightIcon },
           { name: 'Sessions', path: '/counselor/sessions', icon: CalendarDaysIcon },
-          { name: 'Students', path: '/counselor/students', icon: UserGroupIcon },
-          { name: 'Analytics', path: '/counselor/analytics', icon: ChartBarIcon },
         ];
       case 'teacher':
         return [
@@ -59,7 +57,6 @@ const NavBar = ({ user }) => {
       case 'parent':
         return [
           { name: 'Dashboard', path: '/', icon: HomeIcon },
-          { name: 'Child Progress', path: '/parent/progress', icon: ChartBarIcon },
           { name: 'Support', path: '/parent/support', icon: ChatBubbleLeftRightIcon },
           { name: 'Resources', path: '/parent/resources', icon: CalendarDaysIcon },
         ];
@@ -89,7 +86,7 @@ const NavBar = ({ user }) => {
   return (
     <>
       {/* Desktop Sidebar - Hidden on Mobile */}
-      <nav className="hidden md:flex fixed top-0 left-0 h-screen w-sidebar bg-[#111111] border-r border-gray-800 p-4 flex-col justify-between">
+      <nav className="hidden md:flex fixed top-0 left-0 h-screen w-sidebar bg-[#111111] border-r border-gray-800 p-8 flex-col justify-between">
         {/* Logo and Brand */}
         <div>
           <Link to="/" className="flex items-center space-x-3 mb-8">
@@ -120,18 +117,7 @@ const NavBar = ({ user }) => {
 
         {/* Bottom Section */}
         <div className="space-y-2">
-          {/* Notifications */}
-          <button className="w-full flex items-center justify-between px-4 py-2.5 text-gray-400 hover:bg-[#1a1a1a] hover:text-white rounded-lg transition-all">
-            <div className="flex items-center space-x-3">
-              <BellIcon className="w-5 h-5" />
-              <span>Notifications</span>
-            </div>
-            {notifications > 0 && (
-              <span className="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full text-xs">
-                {notifications}
-              </span>
-            )}
-          </button>
+         
 
           {/* Profile */}
           <Link
@@ -199,21 +185,7 @@ const NavBar = ({ user }) => {
                 </Link>
               ))}
 
-              {/* Notifications */}
-              <button 
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full flex items-center justify-between px-4 py-3 text-gray-400 hover:bg-[#1a1a1a] hover:text-white rounded-lg transition-all"
-              >
-                <div className="flex items-center space-x-3">
-                  <BellIcon className="w-6 h-6" />
-                  <span className="text-lg">Notifications</span>
-                </div>
-                {notifications > 0 && (
-                  <span className="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full text-xs">
-                    {notifications}
-                  </span>
-                )}
-              </button>
+              
 
               {/* Profile */}
               <Link

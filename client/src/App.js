@@ -24,129 +24,131 @@ import StudentProfile from './components/profile/StudentProfile';
 import AdminProfile from './components/profile/AdminProfile';
 import ParentProfile from './components/profile/ParentProfile';
 import CounselorProfile from './components/profile/CounselorProfile';
-import StudentList from './components/counselor/StudentList';
-
+import Sessions from './components/counselor/Sessions';
+import { AuthProvider } from './contexts/AuthContext';
 function App() {
   useEffect(() => {
     isValidToken();
   }, []);
 
   return (
-    <Router>
-      <GoalProvider>
-        <div className="min-h-screen bg-[#050505]">
-          <Toaster
-            position="center-center"
-            toastOptions={{
-              duration: 5000,
-              style: {
-                background: '#1F2937',
-                color: '#fff',
-                border: '1px solid #374151',
-                maxWidth: '500px',
-                width: '90%'
-              },
-              className: 'rounded-xl'
-            }}
-          />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/" element={
-              <PrivateRoute>
-                <Dashboard />
-              </PrivateRoute>
-            } />
-            <Route path="/resources" element={
-              <PrivateRoute>
-                <Resources />
-              </PrivateRoute>
-            } />
-            <Route path="/mood" element={
-              <PrivateRoute>
-                <MoodTracker />
-              </PrivateRoute>
-            } />
-            <Route path="/counselor/chats" element={
-              <PrivateRoute allowedRoles={['counselor']}>
-                <CounselorChat />
-              </PrivateRoute>
-            } />
-            <Route path="/student/chat" element={
-              <PrivateRoute>
-                <AnonymousChatPage />
-              </PrivateRoute>
-            } />
-            <Route path="/student/resources" element={
-              <PrivateRoute allowedRoles={['student']}>
-                <StudentResources />
-              </PrivateRoute>
-            } />
-            <Route path="/student/progress" element={
-              <PrivateRoute allowedRoles={['student']}>
-                <StudentProgress />
-              </PrivateRoute>
-            } />
-            <Route path="/student/profile" element={
-              <PrivateRoute allowedRoles={['student']}>
-                <StudentProfile />
-              </PrivateRoute>
-            } />
-            <Route path="/parent/resources" element={
-              <PrivateRoute allowedRoles={['parent']}>
-                <ParentResources />
-              </PrivateRoute>
-            } />
-            <Route path="/parent/support" element={
-              <PrivateRoute allowedRoles={['parent']}>
-                <ParentSupport />
-              </PrivateRoute>
-            } />
-            <Route path="/parent/profile" element={
-              <PrivateRoute allowedRoles={['parent']}>
-                <ParentProfile />
-              </PrivateRoute>
-            } />
-            <Route path="/teacher/support" element={
-              <PrivateRoute allowedRoles={['teacher']}>
-                <TeacherSupport />
-              </PrivateRoute>
-            } />
-            <Route path="/admin/users" element={
-              <PrivateRoute allowedRoles={['admin']}>
-                <UserManagement />
-              </PrivateRoute>
-            } />
-            <Route path="/admin/settings" element={
-              <PrivateRoute allowedRoles={['admin']}>
-                <SystemSettings />
-              </PrivateRoute>
-            } />
-            <Route path="/admin/analytics" element={
-              <PrivateRoute allowedRoles={['admin']}>
-                <Analytics />
-              </PrivateRoute>
-            } />
-            <Route path="/admin/profile" element={
-              <PrivateRoute allowedRoles={['admin']}>
-                <AdminProfile />
-              </PrivateRoute>
-            } />
-            <Route path="/counselor/profile" element={
-              <PrivateRoute allowedRoles={['counselor']}>
-                <CounselorProfile />
-              </PrivateRoute>
-            } />
-            <Route path="/counselor/students" element={
-              <PrivateRoute allowedRoles={['counselor']}>
-                <StudentList />
-              </PrivateRoute>
-            } />
-          </Routes>
-          <ChatBot />
-        </div>
-      </GoalProvider>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <GoalProvider>
+          <div className="min-h-screen bg-[#050505]">
+            <Toaster
+              position="center-center"
+              toastOptions={{
+                duration: 5000,
+                style: {
+                  background: '#1F2937',
+                  color: '#fff',
+                  border: '1px solid #374151',
+                  maxWidth: '500px',
+                  width: '90%'
+                },
+                className: 'rounded-xl'
+              }}
+            />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/" element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              } />
+              <Route path="/resources" element={
+                <PrivateRoute>
+                  <Resources />
+                </PrivateRoute>
+              } />
+              <Route path="/mood" element={
+                <PrivateRoute>
+                  <MoodTracker />
+                </PrivateRoute>
+              } />
+              <Route path="/counselor/chats" element={
+                <PrivateRoute allowedRoles={['counselor']}>
+                  <CounselorChat />
+                </PrivateRoute>
+              } />
+              <Route path="/counselor/sessions" element={
+                <PrivateRoute allowedRoles={['counselor']}>
+                  <Sessions />
+                </PrivateRoute>
+              } />
+              <Route path="/student/chat" element={
+                <PrivateRoute>
+                  <AnonymousChatPage />
+                </PrivateRoute>
+              } />
+              <Route path="/student/resources" element={
+                <PrivateRoute allowedRoles={['student']}>
+                  <StudentResources />
+                </PrivateRoute>
+              } />
+              <Route path="/student/progress" element={
+                <PrivateRoute allowedRoles={['student']}>
+                  <StudentProgress />
+                </PrivateRoute>
+              } />
+              <Route path="/student/profile" element={
+                <PrivateRoute allowedRoles={['student']}>
+                  <StudentProfile />
+                </PrivateRoute>
+              } />
+              <Route path="/parent/resources" element={
+                <PrivateRoute allowedRoles={['parent']}>
+                  <ParentResources />
+                </PrivateRoute>
+              } />
+              <Route path="/parent/support" element={
+                <PrivateRoute allowedRoles={['parent']}>
+                  <ParentSupport />
+                </PrivateRoute>
+              } />
+              <Route path="/parent/profile" element={
+                <PrivateRoute allowedRoles={['parent']}>
+                  <ParentProfile />
+                </PrivateRoute>
+              } />
+              <Route path="/teacher/support" element={
+                <PrivateRoute allowedRoles={['teacher']}>
+                  <TeacherSupport />
+                </PrivateRoute>
+              } />
+              <Route path="/admin/users" element={
+                <PrivateRoute allowedRoles={['admin']}>
+                  <UserManagement />
+                </PrivateRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <PrivateRoute allowedRoles={['admin']}>
+                  <SystemSettings />
+                </PrivateRoute>
+              } />
+              <Route path="/admin/analytics" element={
+                <PrivateRoute allowedRoles={['admin']}>
+                  <Analytics />
+                </PrivateRoute>
+              } />
+              <Route path="/admin/profile" element={
+                <PrivateRoute allowedRoles={['admin']}>
+                  <AdminProfile />
+                </PrivateRoute>
+              } />
+              <Route path="/counselor/profile" element={
+                <PrivateRoute allowedRoles={['counselor']}>
+                  <CounselorProfile />
+                </PrivateRoute>
+              } />
+            </Routes>
+            <ChatBot />
+          </div>
+        </GoalProvider>
+      </Router>
+      </AuthProvider>
   );
 }
 

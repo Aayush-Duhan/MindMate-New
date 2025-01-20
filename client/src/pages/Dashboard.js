@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import StudentDashboard from '../components/dashboards/StudentDashboard';
 import CounselorDashboard from '../components/dashboards/CounselorDashboard';
 import TeacherDashboard from '../components/dashboards/TeacherDashboard';
@@ -8,7 +9,7 @@ import AdminDashboard from '../components/dashboards/AdminDashboard';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!user) {
@@ -49,4 +50,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

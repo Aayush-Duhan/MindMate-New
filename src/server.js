@@ -14,6 +14,7 @@ const Chat = require('./models/Chat');
 const mongoose = require('mongoose');
 const { initializeSocket } = require('./utils/socketUtils');
 const counselorRoutes = require('./routes/counselor.routes');
+const groupRoutes = require('./routes/groups');
 
 const app = express();
 const server = http.createServer(app);
@@ -115,6 +116,8 @@ const profileRoutes = require('./routes/profile.routes');
 const connectionRoutes = require('./routes/connection.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const adminRoutes = require('./routes/admin.routes');
+const phoneConsultationRoutes = require('./routes/phoneConsultations');
+const videoConsultationRoutes = require('./routes/videoConsultations');
 
 // Make io available to routes
 app.use((req, res, next) => {
@@ -129,17 +132,20 @@ app.use('/api/resources', resourceRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/mood', moodRoutes);
-app.use('/api/schools', schoolRoutes);
-app.use('/api/records', mentalHealthRoutes);
+app.use('/api/school', schoolRoutes);
+app.use('/api/mental-health', mentalHealthRoutes);
 app.use('/api/anonymous-chat', anonymousChatRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/quotes', quotesRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/connection', connectionRoutes);
-app.use('/api/admin/settings', settingsRoutes);
+app.use('/api/connections', connectionRoutes);
+app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/counselor', counselorRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/phone-consultations', phoneConsultationRoutes);
+app.use('/api/video-consultations', videoConsultationRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
