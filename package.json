@@ -1,0 +1,46 @@
+{
+  "name": "mindmate",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.js",
+    "start:server": "node src/server.js",
+    "start:client": "cd client && npm start",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/scripts/seed.js",
+    "fix-messages": "node src/scripts/fixMessages.js",
+    "reencrypt": "node src/scripts/reEncryptMessages.js",
+    "reset-messages": "node src/scripts/resetMessages.js",
+    "fix-format": "node src/scripts/fixMessageFormat.js",
+    "check-counselors": "node src/scripts/checkCounselors.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@tailwindcss/forms": "^0.5.10",
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "framer-motion": "^11.18.0",
+    "helmet": "^8.0.0",
+    "hpp": "^0.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "xss-clean": "^0.1.4"
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "nodemon": "^3.1.9",
+    "prettier": "^3.4.2"
+  }
+}

@@ -1,0 +1,94 @@
+/* Override default calendar styles */
+.react-calendar {
+  background-color: #111111 !important;
+  border: none !important;
+  font-family: inherit !important;
+}
+
+/* Remove default button styles */
+.react-calendar button {
+  border: none !important;
+  outline: none !important;
+  background: none !important;
+}
+
+/* Remove default hover background */
+.react-calendar button:enabled:hover {
+  background-color: transparent !important;
+}
+
+/* Remove default focus outline */
+.react-calendar button:enabled:focus {
+  background-color: transparent !important;
+}
+
+/* Remove abbr underline */
+.react-calendar abbr[title] {
+  text-decoration: none !important;
+  cursor: default !important;
+}
+
+/* Navigation arrows spacing */
+.react-calendar__navigation__arrow {
+  padding: 0 8px !important;
+}
+
+/* Adjust tile sizes and spacing */
+.react-calendar__month-view__days__day {
+  padding: 8px !important;
+}
+
+/* Weekend days color */
+.react-calendar__month-view__days__day--weekend {
+  color: #9f7aea !important; /* purple-400 */
+}
+
+/* Neighboring month days */
+.react-calendar__month-view__days__day--neighboringMonth {
+  opacity: 0.3 !important;
+}
+
+/* Navigation label (month/year) */
+.react-calendar__navigation__label__labelText {
+  font-weight: 500 !important;
+  font-size: 1.1rem !important;
+  color: #e5e7eb !important; /* text-gray-200 */
+}
+
+/* Navigation arrows */
+.react-calendar__navigation button {
+  min-width: 36px !important;
+  background: none !important;
+  font-size: 1.5rem !important;
+  line-height: 1.5rem !important;
+  color: #9ca3af !important; /* text-gray-400 */
+}
+
+/* Navigation arrows hover state */
+.react-calendar__navigation button:hover {
+  color: #a78bfa !important; /* text-purple-400 */
+}
+
+/* Weekday headers */
+.react-calendar__month-view__weekdays__weekday {
+  padding: 8px 0 !important;
+  text-align: center !important;
+  color: #6b7280 !important; /* text-gray-500 */
+}
+
+/* Calendar container */
+.react-calendar-container {
+  padding: 1rem;
+  background-color: #111111;
+  border-radius: 0.75rem;
+}
+
+/* Calendar navigation container */
+.react-calendar__navigation {
+  margin-bottom: 1rem !important;
+}
+
+/* Calendar title */
+.text-xl.font-bold.text-white.mb-4 {
+  margin-bottom: 1.5rem !important;
+} 
