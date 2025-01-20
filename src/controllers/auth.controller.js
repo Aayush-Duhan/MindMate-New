@@ -42,23 +42,20 @@ const register = async (req, res) => {
       }
     });
 
-    if (user) {
-      // Generate token
-      const token = generateToken(user._id);
+    // Generate token
+    const token = generateToken(user._id);
 
-      res.status(201).json({
-        success: true,
-        token,
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          preferences: user.preferences
-        }
-      });
-    }
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        preferences: user.preferences
+      }
+    });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ 
@@ -75,52 +72,75 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt for:', email);
+    console.log('Attempted password:', password); // Log the attempted password
 
-    // Find user and explicitly select password field
+    // Check if email and password are provided
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password'
+      });
+    }
+
+    // Find user by email and explicitly select the password field
     const user = await User.findOne({ email }).select('+password');
-    
-    // Check for user email
+    console.log('Found user:', user ? 'Yes' : 'No');
+
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: 'Invalid credentials' 
+        message: 'Invalid credentials'
       });
     }
 
-    // Check password using the matchPassword method
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid credentials' 
-      });
-    }
-
-    // Update last active
-    user.lastActive = Date.now();
-    await user.save({ validateBeforeSave: false }); // Skip validation during login
-
-    // Generate token using the method from User model
-    const token = user.getSignedJwtToken();
+    // Debug password check
+    console.log('Stored hash:', user.password);
     
+    // Create a test hash with the same password to compare
+    const salt = await bcrypt.genSalt(10);
+    const testHash = await bcrypt.hash('password123', salt);
+    console.log('Test hash with same password:', testHash);
+    
+    // Try direct string comparison of password before hashing
+    console.log('Raw password comparison:', password === 'password123');
+    
+    // Check if password matches
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match result:', isMatch);
+
+    // Try comparing with known password
+    const testMatch = await bcrypt.compare('password123', user.password);
+    console.log('Test password match result:', testMatch);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    // Send response
     res.json({
       success: true,
       token,
       user: {
         _id: user._id,
-        name: user.name || '',
+        name: user.name,
         email: user.email,
         role: user.role,
-        avatar: user.avatar,
         preferences: user.preferences
       }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: 'Error logging in',
+      error: error.message
     });
   }
 };
@@ -137,56 +157,25 @@ const getMe = async (req, res) => {
   }
 };
 
-// Add this new function to get all users
+// @desc    Get all users
+// @route   GET /api/auth/users
+// @access  Private/Admin
 const getUsers = async (req, res) => {
   try {
-    const { role } = req.query;
-    const query = { 
-      _id: { $ne: req.user._id },
-      isActive: true 
-    };
-    
-    // Add role filter if specified
-    if (role) {
-      query.role = role;
-    }
-    
-    const users = await User.find(query)
-      .select('email role profile')
-      .sort('profile.firstName');
-    
-    // Transform the data to ensure profile fields are present
-    const transformedUsers = users.map(user => ({
-      _id: user._id,
-      email: user.email,
-      role: user.role,
-      profile: {
-        firstName: user.profile?.firstName || '',
-        lastName: user.profile?.lastName || '',
-        ...user.profile
-      }
-    }));
-    
-    res.json(transformedUsers);
+    const users = await User.find().select('-password');
+    res.json(users);
   } catch (error) {
-    console.error('Error in getUsers:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// Add this new function
+// @desc    Refresh token
+// @route   POST /api/auth/refresh-token
+// @access  Public
 const refreshToken = async (req, res) => {
   try {
     const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({ message: 'Token is required' });
-    }
-
-    // Verify the old token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
-    
-    // Get user from token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
     
     if (!user) {

@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
+require('dotenv').config();
 
 const counselors = [
   {
     name: 'Dr. Sarah Johnson',
     email: 'sarah.johnson@mindmate.com',
-    password: 'password123', // This will be hashed
+    password: 'password123',
     specialization: 'Anxiety & Depression',
     role: 'counselor',
     profile: {
@@ -18,7 +18,7 @@ const counselors = [
   {
     name: 'Dr. Michael Chen',
     email: 'michael.chen@mindmate.com',
-    password: 'password123', // This will be hashed
+    password: 'password123',
     specialization: 'Stress Management',
     role: 'counselor',
     profile: {
@@ -30,7 +30,7 @@ const counselors = [
   {
     name: 'Dr. Emily Williams',
     email: 'emily.williams@mindmate.com',
-    password: 'password123', // This will be hashed
+    password: 'password123',
     specialization: 'Mental Wellness',
     role: 'counselor',
     profile: {
@@ -42,7 +42,9 @@ const counselors = [
   {
     name: 'Dr. James Martinez',
     email: 'james.martinez@mindmate.com',
+    password: 'password123',
     specialization: 'Youth Counseling',
+    role: 'counselor',
     profile: {
       bio: 'Dedicated to supporting young adults through life transitions',
       education: 'Ph.D. in Child Psychology, University of Michigan',
@@ -53,7 +55,7 @@ const counselors = [
 
 const seedCounselors = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGO_URI);
     console.log('Connected to MongoDB');
 
     // Clear existing counselors
@@ -63,22 +65,20 @@ const seedCounselors = async () => {
     // Create new counselors
     for (const counselorData of counselors) {
       try {
-        const hashedPassword = await bcrypt.hash(counselorData.password, 10);
+        console.log('Creating counselor:', counselorData.email);
+        
         const counselor = new User({
           ...counselorData,
-          password: hashedPassword,
           isActive: true,
           isVerified: true
         });
 
         await counselor.save();
-        console.log(`Created counselor: ${counselorData.name}`);
+        console.log(`Created counselor: ${counselorData.name}\n`);
       } catch (error) {
         console.error(`Error creating counselor ${counselorData.name}:`, error);
       }
     }
-
-    console.log('Counselors seeded successfully!');
 
     // Verify seeded counselors
     const seededCounselors = await User.find({ role: 'counselor' });
