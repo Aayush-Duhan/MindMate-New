@@ -10,6 +10,7 @@ import {
   BellIcon,
   PencilIcon,
   CheckIcon,
+  ClipboardIcon,
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
@@ -26,6 +27,8 @@ const StudentProfile = () => {
       emailUpdates: true,
     },
   });
+  const [connectionCode, setConnectionCode] = useState(null);
+  const [showConnectionCode, setShowConnectionCode] = useState(false);
 
   useEffect(() => {
     fetchProfileData();
@@ -73,6 +76,25 @@ const StudentProfile = () => {
         name: profileData.user.name,
         preferences: profileData.user.preferences,
       });
+    }
+  };
+
+  const generateConnectionCode = async () => {
+    try {
+      const response = await api.post('/api/connection/generate-code');
+      if (response.data.success) {
+        setConnectionCode(response.data.data.code);
+        setShowConnectionCode(true);
+        // Auto-hide code after 1 hour
+        setTimeout(() => {
+          setConnectionCode(null);
+          setShowConnectionCode(false);
+        }, 60 * 60 * 1000);
+        toast.success('Connection code generated successfully');
+      }
+    } catch (error) {
+      toast.error('Failed to generate connection code');
+      console.error('Error:', error);
     }
   };
 
@@ -271,6 +293,46 @@ const StudentProfile = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* Connection Code Section */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="bg-[#111] border border-gray-800 rounded-2xl p-6 mt-6"
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold text-white">Parent Connection</h3>
+          {!showConnectionCode && (
+            <button
+              onClick={generateConnectionCode}
+              className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+            >
+              Generate Connection Code
+            </button>
+          )}
+        </div>
+        
+        {showConnectionCode && connectionCode && (
+          <div className="text-center">
+            <p className="text-gray-400 mb-2">Share this code with your parent to connect:</p>
+            <div className="flex items-center justify-center space-x-4 mb-4">
+              <div className="bg-[#1a1a1a] px-6 py-3 rounded-xl text-2xl font-mono text-white tracking-wider">
+                {connectionCode}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(connectionCode);
+                  toast.success('Code copied to clipboard');
+                }}
+                className="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <ClipboardIcon className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500">This code will expire in 1 hour</p>
+          </div>
+        )}
+      </motion.div>
 
       {/* Settings Section */}
       <motion.div

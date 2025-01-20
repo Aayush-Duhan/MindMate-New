@@ -8,10 +8,36 @@ const asyncHandler = require('../middleware/async');
 const getProfile = asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('Getting profile for user:', userId);
     
     // Get user data
     const user = await User.findById(userId).select('-password');
+    console.log('Found user:', user);
+
+    if (!user) {
+      console.log('User not found');
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Handle parent profile differently
+    if (user.role === 'parent') {
+      console.log('Handling parent profile');
+      return res.json({
+        success: true,
+        data: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone || null,
+          childName: user.profile?.childName || '',
+          avatar: user.avatar
+        }
+      });
+    }
     
+    // For other roles (student, etc.)
     // Get goals statistics
     const goals = await Goal.find({ user: userId });
     const completedGoals = goals.filter(goal => goal.status === 'completed').length;
@@ -58,16 +84,14 @@ const getProfile = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update student profile
+// @desc    Update profile
 // @route   PUT /api/profile
 // @access  Private
 const updateProfile = asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, preferences } = req.body;
-
-    // Find and update user
     const user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -75,6 +99,37 @@ const updateProfile = asyncHandler(async (req, res) => {
       });
     }
 
+    // Handle parent profile update
+    if (user.role === 'parent') {
+      const { name, email, phone, childName } = req.body;
+
+      // Update basic fields
+      if (name) user.name = name;
+      if (email) user.email = email;
+      if (phone !== undefined) user.phone = phone;
+
+      // Update or initialize profile if it doesn't exist
+      if (!user.profile) user.profile = {};
+      if (childName !== undefined) user.profile.childName = childName;
+
+      await user.save();
+
+      return res.json({
+        success: true,
+        data: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone || null,
+          childName: user.profile?.childName || '',
+          avatar: user.avatar
+        }
+      });
+    }
+
+    // Handle other roles (student, etc.)
+    const { name, preferences } = req.body;
+
+    // Update basic fields
     if (name) user.name = name;
     if (preferences) user.preferences = { ...user.preferences, ...preferences };
 
