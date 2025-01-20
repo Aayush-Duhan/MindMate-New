@@ -13,6 +13,7 @@ const jwt = require('jsonwebtoken');
 const Chat = require('./models/Chat');
 const mongoose = require('mongoose');
 const { initializeSocket } = require('./utils/socketUtils');
+const counselorRoutes = require('./routes/counselor.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -45,7 +46,11 @@ initializeSocket(io);
 connectDB();
 
 // Middleware
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json());
+app.use(cors({
+  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  credentials: true
+}));
 app.use(mongoSanitize());
 app.use(xss());
 app.use(hpp());
@@ -134,6 +139,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/connection', connectionRoutes);
 app.use('/api/admin/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/counselor', counselorRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

@@ -12,7 +12,7 @@ const createMoodEntry = asyncHandler(async (req, res) => {
     const moodEntry = await MoodEntry.create({
       user: req.user.id,
       mood,
-      intensity: intensity || 5,
+      intensity: intensity || 3, // Changed default from 5 to 3 for a more neutral default
       notes: notes || '',
       activities: activities || [],
       triggers: triggers || [],
@@ -39,8 +39,7 @@ const createMoodEntry = asyncHandler(async (req, res) => {
 const getMoodEntries = async (req, res) => {
   try {
     const entries = await MoodEntry.find({ userId: req.user._id })
-      .sort({ timestamp: -1 })
-      .limit(5); // Get only the 5 most recent entries
+      .sort({ timestamp: -1 }); // Get all entries, sorted by most recent first
 
     // Format the entries for frontend
     const formattedEntries = entries.map(entry => ({
@@ -327,6 +326,58 @@ const shareMoodData = async (req, res) => {
   }
 };
 
+// Calculate user's mood entry streak
+const calculateStreak = asyncHandler(async (req, res) => {
+  try {
+    const entries = await MoodEntry.find({ 
+      userId: req.user._id 
+    }).sort({ timestamp: -1 });
+
+    if (!entries.length) {
+      return res.json({ success: true, streak: 0 });
+    }
+
+    let streak = 0;
+    let currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+
+    // Check if there's an entry for today
+    const latestEntry = new Date(entries[0].timestamp);
+    latestEntry.setHours(0, 0, 0, 0);
+    
+    if (latestEntry.getTime() !== currentDate.getTime()) {
+      return res.json({ success: true, streak: 0 });
+    }
+
+    // Calculate streak by checking consecutive days
+    streak = 1; // Count today
+    for (let i = 1; i < entries.length; i++) {
+      const entryDate = new Date(entries[i].timestamp);
+      entryDate.setHours(0, 0, 0, 0);
+      
+      const expectedDate = new Date(currentDate);
+      expectedDate.setDate(currentDate.getDate() - i);
+      
+      if (entryDate.getTime() === expectedDate.getTime()) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    res.json({
+      success: true,
+      streak,
+      lastEntry: entries[0].timestamp
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error calculating streak' 
+    });
+  }
+});
+
 // Helper function to calculate mood summary
 const calculateMoodSummary = (entries) => {
   if (!entries.length) return null;
@@ -356,5 +407,6 @@ module.exports = {
   shareMoodEntries,
   quickMoodCheck,
   getAvailableCounselors,
-  shareMoodData
+  shareMoodData,
+  calculateStreak
 };
