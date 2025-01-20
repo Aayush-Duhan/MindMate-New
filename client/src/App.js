@@ -23,6 +23,8 @@ import { Toaster } from 'react-hot-toast';
 import StudentProfile from './components/profile/StudentProfile';
 import AdminProfile from './components/profile/AdminProfile';
 import ParentProfile from './components/profile/ParentProfile';
+import CounselorProfile from './components/profile/CounselorProfile';
+import StudentList from './components/counselor/StudentList';
 
 function App() {
   useEffect(() => {
@@ -128,6 +130,16 @@ function App() {
             <Route path="/admin/profile" element={
               <PrivateRoute allowedRoles={['admin']}>
                 <AdminProfile />
+              </PrivateRoute>
+            } />
+            <Route path="/counselor/profile" element={
+              <PrivateRoute allowedRoles={['counselor']}>
+                <CounselorProfile />
+              </PrivateRoute>
+            } />
+            <Route path="/counselor/students" element={
+              <PrivateRoute allowedRoles={['counselor']}>
+                <StudentList />
               </PrivateRoute>
             } />
           </Routes>

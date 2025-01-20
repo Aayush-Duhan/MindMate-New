@@ -33,7 +33,15 @@ const UserSchema = new mongoose.Schema({
   },
   specialization: {
     type: String,
-    required: function() { return this.role === 'counselor'; }
+    default: ''
+  },
+  bio: {
+    type: String,
+    default: ''
+  },
+  yearsOfExperience: {
+    type: Number,
+    default: 0
   },
   profile: {
     bio: String,

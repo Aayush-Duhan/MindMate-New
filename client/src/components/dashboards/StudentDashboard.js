@@ -2,8 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
 import './StudentDashboard.css';
 import { 
   BookOpenIcon, 
@@ -30,11 +28,11 @@ const StudentDashboard = () => {
   const { goals, loading: goalsLoading, fetchGoals } = useGoals();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showQuickMood, setShowQuickMood] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [dailyQuote, setDailyQuote] = useState({
     text: "Loading your daily inspiration...",
     author: ""
   });
+  const [streak, setStreak] = useState(0);
   const [notifications, setNotifications] = useState([
     { id: 1, title: "New Resource Available", message: "Check out our new meditation guide!", type: "info" },
     { id: 2, title: "Upcoming Session", message: "Counseling session tomorrow at 3 PM", type: "reminder" }
@@ -43,6 +41,12 @@ const StudentDashboard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [moodHistory, setMoodHistory] = useState([]);
+  const [moodInsights, setMoodInsights] = useState({
+    mostFrequentMood: '',
+    averageIntensity: 0,
+    totalEntries: 0,
+    recentTrend: ''
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const moodOptions = [
@@ -150,6 +154,59 @@ const StudentDashboard = () => {
     fetchMoodHistory();
   }, []);
 
+  // Calculate mood insights
+  useEffect(() => {
+    if (moodHistory.length > 0) {
+      // Count mood frequencies
+      const moodFrequencies = moodHistory.reduce((acc, entry) => {
+        acc[entry.mood] = (acc[entry.mood] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Calculate average intensity
+      const avgIntensity = moodHistory.reduce((sum, entry) => sum + entry.intensity, 0) / moodHistory.length;
+
+      // Find most frequent mood
+      const mostFrequent = Object.entries(moodFrequencies)
+        .sort(([,a], [,b]) => b - a)[0][0];
+
+      // Determine recent trend (last 3 entries)
+      const recent = moodHistory.slice(0, 3);
+      let trend = 'stable';
+      if (recent.length >= 2) {
+        const intensityChanges = recent.slice(0, -1).map((entry, i) => {
+          return recent[i].intensity - recent[i + 1].intensity;
+        });
+        const avgChange = intensityChanges.reduce((sum, change) => sum + change, 0) / intensityChanges.length;
+        trend = avgChange > 0.5 ? 'improving' : avgChange < -0.5 ? 'declining' : 'stable';
+      }
+
+      setMoodInsights({
+        mostFrequentMood: mostFrequent,
+        averageIntensity: Math.round(avgIntensity * 10) / 10,
+        totalEntries: moodHistory.length,
+        recentTrend: trend
+      });
+    }
+  }, [moodHistory]);
+
+  // Fetch streak data
+  useEffect(() => {
+    const fetchStreak = async () => {
+      try {
+        const response = await api.get('/api/mood/streak');
+        if (response.data.success) {
+          setStreak(response.data.streak);
+        }
+      } catch (error) {
+        console.error('Error fetching streak:', error);
+        toast.error('Failed to fetch streak data');
+      }
+    };
+
+    fetchStreak();
+  }, []);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -173,24 +230,8 @@ const StudentDashboard = () => {
     return "Good evening";
   };
 
-  // Custom calendar tile content and className
-  const getTileClassName = ({ date, view }) => {
-    return `
-      bg-transparent 
-      rounded-lg 
-      transition-colors 
-      ${view === 'month' ? 'p-2 text-center' : ''}
-      ${date.toDateString() === new Date().toDateString() ? 'bg-purple-900/30 text-purple-300 font-bold' : 'text-gray-300'}
-      ${date.toDateString() === selectedDate.toDateString() ? 'bg-purple-900/50 text-purple-200' : ''}
-      ${date.getMonth() !== selectedDate.getMonth() ? 'text-gray-600' : ''}
-      hover:bg-purple-900/30
-      hover:text-purple-200
-      focus:bg-purple-900/40
-      focus:text-purple-200
-    `;
-  };
-
   const handleMoodSubmit = async (selectedMood) => {
+    setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -198,16 +239,18 @@ const StudentDashboard = () => {
       }
 
       const moodMapping = {
-        'Great': 'happy',
-        'Good': 'calm',
-        'Okay': 'neutral',
-        'Down': 'sad',
-        'Sad': 'stressed'
+        'Great': { mood: 'happy', intensity: 5 },
+        'Good': { mood: 'calm', intensity: 4 },
+        'Okay': { mood: 'neutral', intensity: 3 },
+        'Down': { mood: 'sad', intensity: 2 },
+        'Sad': { mood: 'stressed', intensity: 1 }
       };
 
+      const selectedMoodData = moodMapping[selectedMood.text] || { mood: 'neutral', intensity: 3 };
+      
       const moodData = {
-        mood: moodMapping[selectedMood.text] || 'neutral',
-        intensity: selectedMood.intensity || 3,
+        mood: selectedMoodData.mood,
+        intensity: selectedMoodData.intensity,
         timestamp: new Date().toISOString()
       };
 
@@ -231,9 +274,17 @@ const StudentDashboard = () => {
       
       // Refresh mood history after successful submission
       fetchMoodHistory();
+
+      // Fetch updated streak after successful mood entry
+      const streakResponse = await api.get('/api/mood/streak');
+      if (streakResponse.data.success) {
+        setStreak(streakResponse.data.streak);
+      }
     } catch (error) {
       console.error('Error submitting mood:', error);
       toast.error(error.message || 'Failed to record mood');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -318,89 +369,71 @@ const StudentDashboard = () => {
 
       {/* Main Dashboard Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Calendar and Mood Tracking */}
+        {/* Left Column - Notifications */}
         <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
-          {/* Calendar Card with Tailwind Styles */}
-          <div className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-2xl shadow-xl p-6 border border-gray-800">
-            <h2 className="text-xl font-bold text-white mb-4">Mood Calendar</h2>
-            <div className="react-calendar-container">
-              <Calendar
-                onChange={setSelectedDate}
-                value={selectedDate}
-                tileClassName={getTileClassName}
-                className="
-                  w-full 
-                  bg-[#111111] 
-                  border-none 
-                  rounded-xl
-                  [&_.react-calendar__navigation]:bg-[#111111]
-                  [&_.react-calendar__navigation]:mb-4
-                  [&_.react-calendar__navigation]:p-2
-                  [&_.react-calendar__navigation__label]:text-gray-300
-                  [&_.react-calendar__navigation__label]:hover:text-purple-300
-                  [&_.react-calendar__navigation__label]:text-lg
-                  [&_.react-calendar__navigation__label]:font-medium
-                  [&_.react-calendar__navigation__arrow]:text-gray-400
-                  [&_.react-calendar__navigation__arrow]:hover:text-purple-300
-                  [&_.react-calendar__navigation__arrow]:text-2xl
-                  [&_.react-calendar__month-view__weekdays]:mb-2
-                  [&_.react-calendar__month-view__weekdays__weekday]:text-gray-500
-                  [&_.react-calendar__month-view__weekdays__weekday]:uppercase
-                  [&_.react-calendar__month-view__weekdays__weekday]:font-medium
-                  [&_.react-calendar__month-view__weekdays__weekday]:text-xs
-                  [&_.react-calendar__month-view__weekdays__weekday_abbr]:no-underline
-                  [&_.react-calendar__month-view__days__day]:aspect-square
-                  [&_.react-calendar__tile]:bg-[#111111]
-                  [&_.react-calendar__tile]:text-gray-300
-                  [&_.react-calendar__tile]:rounded-lg
-                  [&_.react-calendar__tile]:transition-all
-                  [&_.react-calendar__tile]:duration-200
-                  [&_.react-calendar__tile--now]:bg-purple-900/30
-                  [&_.react-calendar__tile--now]:text-purple-300
-                  [&_.react-calendar__tile--active]:bg-purple-900/50
-                  [&_.react-calendar__tile--active]:text-purple-200
-                  [&_.react-calendar__tile]:hover:bg-purple-900/30
-                  [&_.react-calendar__tile]:hover:text-purple-200
-                  [&_.react-calendar__tile]:focus:bg-purple-900/40
-                  [&_.react-calendar__tile]:focus:text-purple-200
-                  [&_.react-calendar__month-view__days__day--neighboringMonth]:text-gray-600
-                "
-                navigationLabel={({ date }) => 
-                  date.toLocaleDateString('default', { month: 'long', year: 'numeric' })
-                }
-                prevLabel={<span className="text-gray-400 hover:text-purple-300 transition-colors">‹</span>}
-                nextLabel={<span className="text-gray-400 hover:text-purple-300 transition-colors">›</span>}
-                prev2Label={<span className="text-gray-400 hover:text-purple-300 transition-colors">«</span>}
-                next2Label={<span className="text-gray-400 hover:text-purple-300 transition-colors">»</span>}
-              />
+          {/* Mood Insights Card */}
+          <motion.div
+            variants={itemVariants}
+            className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-2xl shadow-xl p-6 border border-gray-800"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Mood Insights</h2>
+              <ChartBarIcon className="w-6 h-6 text-purple-400" />
             </div>
-          </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <HeartIcon className="w-5 h-5 text-pink-400" />
+                  <span className="text-gray-300">Most Frequent Mood</span>
+                </div>
+                <span className="text-white font-medium capitalize">{moodInsights.mostFrequentMood || 'N/A'}</span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <SparklesIcon className="w-5 h-5 text-yellow-400" />
+                  <span className="text-gray-300">Average Intensity</span>
+                </div>
+                <span className="text-white font-medium">{moodInsights.averageIntensity || 'N/A'}/5</span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <ChartBarIcon className="w-5 h-5 text-blue-400" />
+                  <span className="text-gray-300">Recent Trend</span>
+                </div>
+                <span className="text-white font-medium capitalize">
+                  {moodInsights.recentTrend === 'improving' && '↗️ Improving'}
+                  {moodInsights.recentTrend === 'declining' && '↘️ Declining'}
+                  {moodInsights.recentTrend === 'stable' && '→ Stable'}
+                  {!moodInsights.recentTrend && 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <DocumentTextIcon className="w-5 h-5 text-green-400" />
+                  <span className="text-gray-300">Total Entries</span>
+                </div>
+                <span className="text-white font-medium">{moodInsights.totalEntries}</span>
+              </div>
+            </div>
+          </motion.div>
 
           {/* Notifications Card */}
           <div className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-2xl shadow-xl p-6 border border-gray-800">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-              <span>Notifications</span>
-              <span className="ml-2 px-2 py-1 bg-purple-500/20 text-purple-300 text-sm rounded-full">
-                {notifications.length}
-              </span>
-            </h2>
+            <h2 className="text-xl font-bold text-white mb-4">Notifications</h2>
             <div className="space-y-4">
               {notifications.map(notification => (
                 <motion.div
                   key={notification.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="p-4 rounded-xl bg-gray-800/50 border border-gray-700"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 rounded-xl bg-white/5 border border-gray-800`}
                 >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-white font-medium">{notification.title}</h3>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      notification.type === 'info' ? 'bg-blue-500/20 text-blue-300' : 'bg-yellow-500/20 text-yellow-300'
-                    }`}>
-                      {notification.type}
-                    </span>
-                  </div>
-                  <p className="text-gray-400 text-sm mt-2">{notification.message}</p>
+                  <h3 className="font-semibold text-white mb-1">{notification.title}</h3>
+                  <p className="text-gray-400 text-sm">{notification.message}</p>
                 </motion.div>
               ))}
             </div>
@@ -508,118 +541,31 @@ const StudentDashboard = () => {
             )}
           </div>
 
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-xl p-4 border border-gray-800">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-2 bg-purple-500/10 rounded-lg">
-                  <ChartBarIcon className="w-6 h-6 text-purple-400" />
-                </div>
-                <span className="text-xl font-semibold text-white">
-                  {goals.length > 0 ? `${Math.round(goals.reduce((acc, goal) => acc + goal.progress, 0) / goals.length)}%` : '0%'}
-                </span>
-              </div>
-              <h3 className="text-gray-400 font-medium">Goal Progress</h3>
-              <div className="mt-2 w-full bg-gray-800 rounded-full h-1.5">
-                <div
-                  className="bg-purple-500 h-1.5 rounded-full transition-all duration-300"
-                  style={{
-                    width: goals.length > 0
-                      ? `${Math.round(goals.reduce((acc, goal) => acc + goal.progress, 0) / goals.length)}%`
-                      : '0%'
-                  }}
-                />
-              </div>
-              <p className="text-sm text-gray-500 mt-2">
-                {goals.length} Active Goal{goals.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-xl p-4 border border-gray-800">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                  <BookOpenIcon className="w-6 h-6 text-blue-400" />
-                </div>
-                <span className="text-2xl font-bold text-blue-400">12</span>
-              </div>
-              <h3 className="text-white mt-2">Resources Used</h3>
-              <p className="text-gray-400 text-sm">This month</p>
-            </div>
-            <div className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-xl p-4 border border-gray-800">
+          {/* Middle Column - Streak */}
+          <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
+            {/* Streak Card */}
+            <motion.div
+              variants={itemVariants}
+              className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-2xl shadow-xl p-6 border border-gray-800"
+            >
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
                   <SparklesIcon className="w-6 h-6 text-green-400" />
                 </div>
-                <span className="text-2xl font-bold text-green-400">7</span>
+                <div className="flex items-baseline">
+                  <span className="text-3xl font-bold text-green-400 mr-2">{streak}</span>
+                  <span className="text-lg text-green-400">{streak === 1 ? 'day' : 'days'}</span>
+                </div>
               </div>
               <h3 className="text-white mt-2">Day Streak</h3>
               <p className="text-gray-400 text-sm">Keep it up!</p>
-            </div>
-          </div>
-
-          {/* Main Action Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mood Tracking Card */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-2xl shadow-xl border border-gray-800 hover:border-purple-500/30 group"
-            >
-              <div className="p-6">
-                <div className="w-14 h-14 bg-purple-900/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-purple-900/30 transition-colors">
-                  <ChartBarIcon className="w-8 h-8 text-purple-400" />
-                </div>
-                <h2 className="text-xl font-bold mb-3 text-white group-hover:text-purple-400 transition-colors">Mood Tracking</h2>
-                <p className="text-gray-400 mb-4">Monitor your emotional well-being with our interactive mood diary</p>
-                <button 
-                  onClick={() => navigate('/mood')}
-                  className="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-purple-900/20 text-purple-400 hover:bg-purple-900/30 font-medium transition-all group-hover:scale-105"
-                >
-                  Track Your Mood
-                  <svg className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
             </motion.div>
-
-            {/* Resources Card */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-2xl shadow-xl border border-gray-800 hover:border-blue-500/30 group"
-            >
-              <div className="p-6">
-                <div className="w-14 h-14 bg-blue-900/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-900/30 transition-colors">
-                  <BookOpenIcon className="w-8 h-8 text-blue-400" />
-                </div>
-                <h2 className="text-xl font-bold mb-3 text-white group-hover:text-blue-400 transition-colors">Resources</h2>
-                <p className="text-gray-400 mb-4">Access our curated collection of wellness resources and guides</p>
-                <button 
-                  onClick={() => navigate('/resources')}
-                  className="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 font-medium transition-all group-hover:scale-105"
-                >
-                  Browse Resources
-                  <svg className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Progress Chart */}
-          <motion.div
-            variants={itemVariants}
-            className="bg-gradient-to-br from-[#111111] to-[#1a1a1a] rounded-2xl shadow-xl p-6 border border-gray-800"
-          >
-            <h2 className="text-xl font-bold text-white mb-4">Wellness Progress</h2>
-            <div className="h-64 relative">
-              {/* Add your chart component here */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-gray-400">Chart visualization will be displayed here</p>
-              </div>
-            </div>
           </motion.div>
 
-          {showGoalModal && <GoalList onClose={() => setShowGoalModal(false)} />}
+          {/* Right Column */}
+          <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
+            {showGoalModal && <GoalList onClose={() => setShowGoalModal(false)} />}
+          </motion.div>
         </motion.div>
       </div>
 
@@ -640,7 +586,7 @@ const StudentDashboard = () => {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-white">How are you feeling?</h2>
+                <h3 className="text-2xl font-bold text-white">How are you feeling?</h3>
                 <button 
                   onClick={() => !isSubmitting && setShowQuickMood(false)}
                   disabled={isSubmitting}

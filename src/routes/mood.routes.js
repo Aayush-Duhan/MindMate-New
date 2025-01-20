@@ -8,7 +8,8 @@ const {
   shareMoodEntries,
   quickMoodCheck,
   getAvailableCounselors,
-  shareMoodData
+  shareMoodData,
+  calculateStreak
 } = require('../controllers/mood.controller');
 
 // Apply protect middleware to all routes
@@ -27,5 +28,8 @@ router.get('/counselors', getAvailableCounselors);
 
 // Share mood data with counselor
 router.post('/share', shareMoodData);
+
+// Get user's current streak
+router.get('/streak', calculateStreak);
 
 module.exports = router;
