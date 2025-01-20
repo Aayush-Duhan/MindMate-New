@@ -5,23 +5,20 @@ import {
   ChartBarIcon,
   UsersIcon,
   ChatBubbleLeftRightIcon,
-  ClockIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
-  CalendarIcon
+  FireIcon,
+  ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
+  ArcElement,
   Filler
 } from 'chart.js';
 
@@ -31,11 +28,10 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
+  ArcElement,
   Filler
 );
 
@@ -57,9 +53,11 @@ const Analytics = () => {
       labels: [],
       data: []
     },
-    sessionMetrics: {
-      labels: [],
-      data: []
+    userEngagement: {
+      lowStreak: 0,
+      mediumStreak: 0,
+      highStreak: 0,
+      superStreak: 0
     }
   });
 
@@ -86,7 +84,7 @@ const Analytics = () => {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:5000/api/admin/analytics?timeRange=${timeRange}`, {
+      const response = await fetch(`http://localhost:5000/api/analytics/system?timeRange=${timeRange}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -195,86 +193,307 @@ const Analytics = () => {
     }
   };
 
-  const userActivityData = {
-    labels: analytics.userActivity.labels,
-    datasets: [
-      {
-        label: 'Active Users',
-        data: analytics.userActivity.data,
-        borderColor: '#8b5cf6',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
-        borderWidth: 2,
-        pointRadius: 4,
-        pointBackgroundColor: '#8b5cf6',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 2,
-        pointHoverRadius: 6,
-        pointHoverBackgroundColor: '#8b5cf6',
-        pointHoverBorderColor: '#fff',
-        pointHoverBorderWidth: 2
-      }
-    ]
-  };
-
-  const userTypesData = {
-    labels: analytics.userTypes.labels,
-    datasets: [
-      {
-        data: analytics.userTypes.data,
-        backgroundColor: [
-          'rgba(139, 92, 246, 0.8)',  // Purple
-          'rgba(59, 130, 246, 0.8)',  // Blue
-          'rgba(16, 185, 129, 0.8)',  // Green
-          'rgba(245, 158, 11, 0.8)'   // Yellow
-        ],
-        borderColor: [
-          'rgba(139, 92, 246, 1)',
-          'rgba(59, 130, 246, 1)',
-          'rgba(16, 185, 129, 1)',
-          'rgba(245, 158, 11, 1)'
-        ],
-        borderWidth: 2,
-        hoverOffset: 4,
-        spacing: 5,
-        borderRadius: 4
-      }
-    ]
-  };
-
-  const sessionMetricsData = {
-    labels: analytics.sessionMetrics.labels,
-    datasets: [
-      {
-        label: 'Session Duration',
-        data: analytics.sessionMetrics.data,
-        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-        borderRadius: 6,
-        borderSkipped: false,
-        hoverBackgroundColor: 'rgba(59, 130, 246, 1)',
-        barThickness: 20,
-        maxBarThickness: 25
-      }
-    ]
-  };
-
   const lineChartOptions = {
-    ...chartOptions,
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
     plugins: {
-      ...chartOptions.plugins,
+      legend: {
+        display: false
+      },
       tooltip: {
-        ...chartOptions.plugins.tooltip,
-        mode: 'index',
-        intersect: false
+        backgroundColor: 'rgba(17, 17, 17, 0.95)',
+        titleColor: '#fff',
+        titleFont: {
+          size: 14,
+          weight: 'bold',
+          family: "'Inter', sans-serif"
+        },
+        bodyColor: '#9ca3af',
+        bodyFont: {
+          size: 13,
+          family: "'Inter', sans-serif"
+        },
+        padding: {
+          top: 12,
+          right: 16,
+          bottom: 12,
+          left: 16
+        },
+        borderColor: 'rgba(75, 85, 99, 0.3)',
+        borderWidth: 1,
+        displayColors: false,
+        callbacks: {
+          title: (context) => {
+            return `Date: ${context[0].label}`;
+          },
+          label: (context) => {
+            return `Mind Sessions: ${context.raw}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          display: false,
+          drawBorder: false
+        },
+        ticks: {
+          color: '#6b7280',
+          font: {
+            family: "'Inter', sans-serif",
+            size: 12
+          }
+        }
+      },
+      y: {
+        grid: {
+          color: 'rgba(75, 85, 99, 0.1)',
+          drawBorder: false
+        },
+        ticks: {
+          color: '#6b7280',
+          font: {
+            family: "'Inter', sans-serif",
+            size: 12
+          },
+          padding: 10,
+          stepSize: 1
+        }
       }
     },
     hover: {
       mode: 'index',
       intersect: false
     }
+  };
+
+  const userActivityData = {
+    labels: analytics.userActivity.labels,
+    datasets: [
+      {
+        label: 'Mind Sessions',
+        data: analytics.userActivity.data,
+        borderColor: 'rgba(147, 51, 234, 1)',
+        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+        borderWidth: 2.5,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: 'rgba(147, 51, 234, 1)',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        pointHitRadius: 20,
+        hoverBackgroundColor: 'rgba(147, 51, 234, 0.2)',
+        hoverBorderColor: 'rgba(147, 51, 234, 1)',
+        hoverBorderWidth: 3
+      }
+    ]
+  };
+
+  const userTypeChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: '#9ca3af',
+          font: {
+            family: "'Inter', sans-serif",
+            size: 12
+          },
+          padding: 20,
+          usePointStyle: true,
+          pointStyle: 'circle'
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(17, 17, 17, 0.95)',
+        titleColor: '#fff',
+        titleFont: {
+          size: 14,
+          weight: 'bold',
+          family: "'Inter', sans-serif"
+        },
+        bodyColor: '#9ca3af',
+        bodyFont: {
+          size: 13,
+          family: "'Inter', sans-serif"
+        },
+        padding: {
+          top: 12,
+          right: 16,
+          bottom: 12,
+          left: 16
+        },
+        borderColor: 'rgba(75, 85, 99, 0.3)',
+        borderWidth: 1,
+        displayColors: true,
+        boxPadding: 6,
+        usePointStyle: true,
+        callbacks: {
+          title: () => '',
+          label: function(context) {
+            return `${context.label}: ${context.raw}`;
+          },
+          labelPointStyle: function(context) {
+            return {
+              pointStyle: 'circle',
+              rotation: 0
+            };
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        display: false
+      },
+      y: {
+        display: false
+      }
+    },
+    cutout: '65%',
+    radius: '90%',
+    animation: {
+      animateRotate: true,
+      animateScale: true,
+      duration: 1000
+    },
+    hover: {
+      mode: 'nearest',
+      intersect: true,
+      animationDuration: 200
+    },
+    elements: {
+      arc: {
+        borderWidth: 2,
+        hoverBorderWidth: 3,
+        hoverBorderColor: 'rgb(255, 255, 255)',
+        borderRadius: 6,
+        hoverOffset: 8
+      }
+    }
+  };
+
+  const userTypeChartData = {
+    labels: analytics.userTypes.labels,
+    datasets: [
+      {
+        data: analytics.userTypes.data,
+        backgroundColor: [
+          'rgba(147, 51, 234, 0.8)',   // Purple
+          'rgba(59, 130, 246, 0.8)',   // Blue
+          'rgba(16, 185, 129, 0.8)',   // Green
+          'rgba(245, 158, 11, 0.8)'    // Orange
+        ],
+        borderColor: [
+          'rgba(147, 51, 234, 1)',
+          'rgba(59, 130, 246, 1)',
+          'rgba(16, 185, 129, 1)',
+          'rgba(245, 158, 11, 1)'
+        ],
+        hoverBackgroundColor: [
+          'rgba(147, 51, 234, 0.9)',
+          'rgba(59, 130, 246, 0.9)',
+          'rgba(16, 185, 129, 0.9)',
+          'rgba(245, 158, 11, 0.9)'
+        ],
+        borderWidth: 2
+      }
+    ]
+  };
+
+  const userEngagementChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: '#9ca3af',
+          font: {
+            family: "'Inter', sans-serif",
+            size: 12
+          },
+          padding: 20,
+          usePointStyle: true,
+          pointStyle: 'circle'
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(17, 17, 17, 0.95)',
+        titleColor: '#fff',
+        titleFont: {
+          size: 14,
+          weight: 'bold',
+          family: "'Inter', sans-serif"
+        },
+        bodyColor: '#9ca3af',
+        bodyFont: {
+          size: 13,
+          family: "'Inter', sans-serif"
+        },
+        padding: {
+          top: 12,
+          right: 16,
+          bottom: 12,
+          left: 16
+        },
+        borderColor: 'rgba(75, 85, 99, 0.3)',
+        borderWidth: 1,
+        displayColors: true,
+        boxPadding: 6,
+        usePointStyle: true,
+        callbacks: {
+          title: () => '',
+          label: function(context) {
+            return `${context.label}: ${context.raw} days`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        display: false
+      },
+      y: {
+        display: false
+      }
+    }
+  };
+
+  const userEngagementData = {
+    labels: ['1-7 days', '8-14 days', '15-30 days', '30+ days'],
+    datasets: [
+      {
+        data: [
+          analytics.userEngagement?.lowStreak || 0,
+          analytics.userEngagement?.mediumStreak || 0,
+          analytics.userEngagement?.highStreak || 0,
+          analytics.userEngagement?.superStreak || 0
+        ],
+        backgroundColor: [
+          'rgba(239, 68, 68, 0.8)',   // Red
+          'rgba(245, 158, 11, 0.8)',   // Orange
+          'rgba(16, 185, 129, 0.8)',   // Green
+          'rgba(147, 51, 234, 0.8)'    // Purple
+        ],
+        borderColor: [
+          'rgb(239, 68, 68)',
+          'rgb(245, 158, 11)',
+          'rgb(16, 185, 129)',
+          'rgb(147, 51, 234)'
+        ],
+        borderWidth: 2
+      }
+    ]
   };
 
   const doughnutChartOptions = {
@@ -361,7 +580,7 @@ const Analytics = () => {
         </motion.div>
 
         {/* Overview Stats */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-[#111] border border-gray-800 rounded-2xl p-6">
             <div className="flex items-center justify-between">
               <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
@@ -391,29 +610,19 @@ const Analytics = () => {
               </div>
               <span className="text-2xl font-bold text-green-400">{analytics.overview.totalSessions}</span>
             </div>
-            <h3 className="text-white mt-2">Total Sessions</h3>
+            <h3 className="text-white mt-2">Total Mind Sessions</h3>
             <p className="text-gray-400 text-sm">All time</p>
-          </div>
-
-          <div className="bg-[#111] border border-gray-800 rounded-2xl p-6">
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                <ClockIcon className="w-6 h-6 text-yellow-400" />
-              </div>
-              <span className="text-2xl font-bold text-yellow-400">
-                {Math.round(analytics.overview.averageSessionTime)}m
-              </span>
-            </div>
-            <h3 className="text-white mt-2">Avg. Session Time</h3>
-            <p className="text-gray-400 text-sm">In minutes</p>
           </div>
         </motion.div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* User Activity Chart */}
+          {/* Mind Sessions Activity Chart */}
           <motion.div variants={itemVariants} className="bg-[#111] border border-gray-800 rounded-2xl p-6">
-            <h3 className="text-xl font-bold text-white mb-4">User Activity</h3>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+              <ChatBubbleLeftRightIcon className="w-6 h-6 mr-2 text-purple-400" />
+              Mind Sessions Activity
+            </h3>
             <div className="h-80">
               <Line data={userActivityData} options={lineChartOptions} />
             </div>
@@ -423,15 +632,26 @@ const Analytics = () => {
           <motion.div variants={itemVariants} className="bg-[#111] border border-gray-800 rounded-2xl p-6">
             <h3 className="text-xl font-bold text-white mb-4">User Distribution</h3>
             <div className="h-80">
-              <Doughnut data={userTypesData} options={doughnutChartOptions} />
+              <Doughnut data={userTypeChartData} options={userTypeChartOptions} />
             </div>
           </motion.div>
 
-          {/* Session Metrics */}
+          {/* User Engagement (Streak Days) */}
           <motion.div variants={itemVariants} className="bg-[#111] border border-gray-800 rounded-2xl p-6 md:col-span-2">
-            <h3 className="text-xl font-bold text-white mb-4">Session Metrics</h3>
-            <div className="h-80">
-              <Bar data={sessionMetricsData} options={barChartOptions} />
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+              <FireIcon className="w-6 h-6 mr-2 text-red-500" />
+              User Engagement (Streak Days)
+            </h3>
+            <div className="h-80 flex items-center justify-center">
+              {analytics.userEngagement && 
+               Object.values(analytics.userEngagement).some(value => value > 0) ? (
+                <Doughnut data={userEngagementData} options={userEngagementChartOptions} />
+              ) : (
+                <div className="text-center text-gray-400">
+                  <p className="text-lg mb-2">No engagement data available</p>
+                  <p className="text-sm">Users haven't started their streaks yet</p>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
