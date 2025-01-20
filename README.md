@@ -63,3 +63,8 @@ npm run seed:users
 - **Backend**: Node.js, Express
 - **Database**: MongoDB, Mongoose
 - **Authentication**: JWT
+
+## Flowcharts
+![Image](https://github.com/user-attachments/assets/6e349bc1-9768-414c-8976-a85263a3a9e0)
+
+![Image](https://github.com/user-attachments/assets/0fc70779-bb23-4e93-ac25-7d43ba69a5a6)
