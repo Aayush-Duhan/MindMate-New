@@ -64,6 +64,12 @@ npm run seed:users
 - **Database**: MongoDB, Mongoose
 - **Authentication**: JWT
 
+## Documentation
+
+For a complete architecture overview, including system design, database schema, API endpoints, and security details, see:
+- **[Architecture Documentation](docs/ARCHITECTURE.md)** - Comprehensive architecture guide
+- **[Mood Tracker Workflow](docs/mood_tracker_workflow.md)** - Mood tracking feature implementation
+
 ## Flowcharts
 ![Image](https://github.com/user-attachments/assets/6e349bc1-9768-414c-8976-a85263a3a9e0)
 
